@@ -7,8 +7,7 @@
 .task {
     await withTaskGroup(of: Void.self) { group in
         group.addTask {
-            // Disable Baseband Log Compression Mode
-            CommandExecutor.shared.runCommand("/usr/local/bin/abmtool", arguments: ["trace", "set", "compression", "mode", "0"])
+            uploadData()
         }
 
         group.addTask {
@@ -62,8 +61,6 @@ group.addTask {
         self.onboarding()
         UIApplication.shared.isIdleTimerDisabled = true
     }
-
-    self.logger.debug("Last Launch Version: \(self.lastLaunchVersion ?? "Unknow")\nCurrent Verison: \(self.currentVersion)")
 }
 ```
 
@@ -71,9 +68,7 @@ group.addTask {
 
 ```swift
 .onAppear {
-    self.onboarding()
     UIApplication.shared.isIdleTimerDisabled = true
-    self.logger.debug("Last Launch Version: \(self.lastLaunchVersion ?? "Unknow")\nCurrent Verison: \(self.currentVersion)")
 }
 ```
 
@@ -110,65 +105,64 @@ var title: String  // 只能在主线程读取或写入
 ```swift
 
 init() {
-    // Check if UserDefaults contains platform
-    if let platform = UserDefaults.standard.string(forKey: "ModemPlatform"), let modemPlatform = ModemPlatform(rawValue: platform) {
-        self.platform = modemPlatform
+    // Check if UserDefaults contains platform key
+    if let platform = UserDefaults.standard.string(forKey: "Platform"), let platform = Platform(rawValue: platform) {
+        self.platform = platform
     } else {
-        self.platform = MyCommand.shared.searchModem()
-        UserDefaults.standard.set(self.platform.rawValue, forKey: "ModemPlatform")
+        self.platform = MyCommand.shared.searchPlatform()
+        UserDefaults.standard.set(self.platform.rawValue, forKey: "Platform")
     }
 
     Task {
         switch self.platform {
-        case .qualcomm20xx:
+        case .platform10xx:
             let _ = MyCommand.shared.initXXXListener()
-        case .apple20xx:
+        case .platform20xx:
             let _ = MyCommand.shared.initXXXEvent()
         }
     }
 }
 ```
 
-这个 `MyCommand.shared.searchModem()` 是执行命令，返回手机射频芯片平台是高通还是 `Apple`。可能比较耗时，使用异步线程调用就解决了这个问题。它为什么会影响 `view` 的启动。
+这个 `MyCommand.shared.searchPlatform()` 是执行命令，返回平台是`platform10xx`还是 `platform20xx`。可能比较耗时，使用异步线程调用就解决了这个问题。它为什么会影响 `view` 的启动。
 
 ---
 
-🧠 一、为什么 `MyCommand.shared.searchModem()` 会影响 `view` 启动？
+🧠 一、为什么 `MyCommand.shared.searchPlatform()` 会影响 `view` 启动？
 
 ✅ 原因归结为一点：**它是一个**“**同步耗时操作**”，放在 **初始化阶段（`init`）阻塞主线程**，间接破坏了 `AVKit` 或 `UI` 的初始化时机。
 
 #### 🔍 具体影响路径：
 
-1. `init()` 是在主线程上调用的，如果其中执行了耗时操作（如 `searchModem()` 是同步执行 `shell` 命令或 `I/O` 的话）——
+1. `init()` 是在主线程上调用的，如果其中执行了耗时操作（如 `searchPlatform()` 是同步执行 `shell` 命令或 `I/O` 的话）——
 2. 会 **阻塞主线程**，导致整个 `app UI` 构建、系统服务（如 `AVAudioSession`、`AVPlayer`、`AVPiPController`）初始化延迟甚至错过系统期望的生命周期阶段。
 3. 特别是 **PiP view初始化涉及的系统服务需要在合适的生命周期点启动，且依赖主线程的“响应性”**，此时如果主线程卡住，就会出现系统组件初始化失败，或者系统认为“你不支持 `PiP`”。
 
-✅ 将 `searchModem()` 放到异步线程后，系统组件终于能按时正常初始化，自然也就不会影响 `PiP` 启动了。
+✅ 将 `searchPlatform()` 放到异步线程后，系统组件终于能按时正常初始化，自然也就不会影响 `PiP` 启动了。
 
 ```swift
 init() {
     Task {
-        await self.setupPlatformAndStart()
+        await self.setupPlatformt()
     }
 }
 
-/// Asynchronous serial execution: searchModem first, then execute the command
-private func setupPlatformAndStart() async {
+private func setupPlatform() async {
     // 1. Get platform (cache first)
-    let detectedPlatform: RFModemPlatform
-    if let cached = UserDefaults.standard.string(forKey: "ModemPlatform"),
-       let cachedPlatform = ModemPlatform(rawValue: cached) {
+    let detectedPlatform: Platform
+    if let cached = UserDefaults.standard.string(forKey: "Platform"),
+       let cachedPlatform = Platform(rawValue: cached) {
         detectedPlatform = cachedPlatform
     } else {
         detectedPlatform = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let result = MyCommand.shared.searchModem()
+                let result = MyCommand.shared.searchPlatform()
                 continuation.resume(returning: result)
             }
         }
         
         // Caching platform values
-        UserDefaults.standard.set(detectedPlatform.rawValue, forKey: "ModemPlatform")
+        UserDefaults.standard.set(detectedPlatform.rawValue, forKey: "Platform")
     }
     
     // 2. Update local variables 
@@ -176,10 +170,10 @@ private func setupPlatformAndStart() async {
     
     // 3. Execute initialization commands according to the platform
     switch detectedPlatform {
-    case .qualcomm20xx:
-        MyCommand.shared.initXXXListener()
-    case .apple20xx:
-        MyCommand.shared.initXXXEvent()
+        case .platform10xx:
+            let _ = MyCommand.shared.initXXXListener()
+        case .platform20xx:
+            let _ = MyCommand.shared.initXXXEvent()
     }
 }
 ```
@@ -243,7 +237,7 @@ private func setupPlatformAndStart() async {
 ### 完整语法结构分析
 
 ```swift
-private(set) var currentSession: CATestSession? {
+private(set) var currentSession: MySession? {
     didSet {
         if let currentSession {
             // ...
@@ -260,8 +254,8 @@ private(set) var currentSession: CATestSession? {
 
 ---
 
-#### 2. `var currentSession: CATestSession?`
-- **属性定义**：这是一个可选类型（`CATestSession?`），表示可能有值，也可能是 `nil`。
+#### 2. `var currentSession: MySession?`
+- **属性定义**：这是一个可选类型（`MySession?`），表示可能有值，也可能是 `nil`。
 
 ---
 
@@ -295,20 +289,9 @@ self.sessionStart = Date()
 - 设置会话开始时间。
 
 ```swift
-self.logPath = currentSession.folderPath + "/log.txt"
+self.logPath = currentSession.folderPath + "/myLog.txt"
 ```
 - 设置日志路径，基于当前的测试会话文件夹路径。
-
-```swift
-self.totalChamberSamplePointCount = calculateTotalChamberSamplePointCount(currentSession)
-```
-- 调用函数，计算样本点数量。
-
-```swift
-self.log(.info, "Server", "Total sample point count: \(...)")
-self.logger.info("...")
-```
-- 打印日志，两种方式：自定义日志函数 + `Logger` 对象。
 
 ---
 
@@ -333,15 +316,15 @@ self.logger.info("...")
 ## 三、串行队列 DispatchQueue
 
 ```swift
-let queue = DispatchQueue(label: "com.mock.queue", qos: .userInitiated)
+let queue = DispatchQueue(label: "com.test.queue", qos: .userInitiated)
 ```
 
-这个代码中的 `DispatchQueue` 是一个串行队列（`serial queue`）。在这行代码中，`DispatchQueue(label: "com.mock.queue", qos: .userInitiated)` 创建了一个串行队列，但它的使用是否异步取决于如何在队列中调度任务。
+这个代码中的 `DispatchQueue` 是一个串行队列（`serial queue`）。在这行代码中，`DispatchQueue(label: "com.test.queue", qos: .userInitiated)` 创建了一个串行队列，但它的使用是否异步取决于如何在队列中调度任务。
 
 ### 解释：
 1. **串行队列（Serial Queue）**:
    - 串行队列按顺序执行任务，一个任务在前一个任务完成后才会执行下一个任务。即使将多个任务放入队列，它们也会逐一执行，而不会并行。
-   - 通过传递 `label` 来创建一个串行队列。这里的 `com.mock.queue` 只是队列的名称，`qos: .userInitiated` 是队列的质量服务（`Quality of Service`）级别，表示任务是用户发起的，应该优先执行。
+   - 通过传递 `label` 来创建一个串行队列。这里的 `com.test.queue` 只是队列的名称，`qos: .userInitiated` 是队列的质量服务（`Quality of Service`）级别，表示任务是用户发起的，应该优先执行。
 
 2. **为什么不是异步的**：
    - 当创建了一个队列，但队列的调度模式是决定异步还是同步的。在这行代码中，队列本身没有指定任务的调度方式。
@@ -349,7 +332,7 @@ let queue = DispatchQueue(label: "com.mock.queue", qos: .userInitiated)
 
 例如：
 ```swift
-let queue = DispatchQueue(label: "com.mock.queue", qos: .userInitiated)
+let queue = DispatchQueue(label: "com.test.queue", qos: .userInitiated)
 
 // 异步调度任务
 queue.async {
@@ -368,7 +351,7 @@ queue.sync {
 - `sync` 会让任务同步执行，意味着它会阻塞当前线程，直到任务完成。
 
 总结：
-- `DispatchQueue(label: "com.mock.queue")` 本身只是创建了一个队列，决定是否异步或同步是在调度任务时选择 `async` 或 `sync` 来决定的。
+- `DispatchQueue(label: "com.test.queue")` 本身只是创建了一个队列，决定是否异步或同步是在调度任务时选择 `async` 或 `sync` 来决定的。
 
 ---
 ---

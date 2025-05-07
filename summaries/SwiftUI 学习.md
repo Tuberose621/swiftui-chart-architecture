@@ -351,12 +351,12 @@ struct ContentView: View {
 - `ObservableObject` 使用 `objectWillChange.send()` **通知 SwiftUI**，但 `@Observable` **不需要手动通知**，自动追踪变化。
 
 **🌟 结论**
-在我的 `PIPReportConfigModel` 使用了 `@Observable`，所以即使没有 `@Published`，**它的属性变化仍然会触发 UI 更新**。这就是 `@Observable` 的优势之一。
+在我的 `ConfigModel` 使用了 `@Observable`，所以即使没有 `@Published`，**它的属性变化仍然会触发 UI 更新**。这就是 `@Observable` 的优势之一。
 
 ---
 
 #### 2. @Bindable vs. @StateObject
-`@Bindable` 和 `@StateObject` **确实都可以让视图监听 `PIPReportConfigModel` 的数据变化**，但它们的作用不同。
+`@Bindable` 和 `@StateObject` **确实都可以让视图监听 `ConfigModel` 的数据变化**，但它们的作用不同。
 
 **✅ `@Bindable`**
 - **用于绑定 `@Observable` 类的属性**，提供 `Binding` 访问，但不负责对象生命周期管理。
@@ -372,32 +372,32 @@ struct ContentView: View {
 **`@StateObject` 的用法**
 
 ```swift
-struct PiPConfigurationSheetView: View {
-    @StateObject private var pipReportConfig = ConfigurationManager.shared.pipReportConfig
+struct ConfigurationSheetView: View {
+    @StateObject private var reportConfig = ConfigurationManager.shared.reportConfig
 
     var body: some View {
-        Text(pipReportConfig.reportName) // ✅ 视图会更新
+        Text(reportConfig.reportName) // ✅ 视图会更新
     }
 }
 ```
 **特点：**
-- `@StateObject` **管理 `pipReportConfig` 的生命周期**。
-- 如果 `PiPConfigurationSheetView` 重新创建，`pipReportConfig` **不会丢失数据**。
+- `@StateObject` **管理 `reportConfig` 的生命周期**。
+- 如果 `ConfigurationSheetView` 重新创建，`reportConfig` **不会丢失数据**。
 
 ---
 
 **`@Bindable` 的用法**
 ```swift
-struct PiPConfigurationSheetView: View {
-    @Bindable private var pipReportConfig = ConfigurationManager.shared.pipReportConfig
+struct ConfigurationSheetView: View {
+    @Bindable private var reportConfig = ConfigurationManager.shared.reportConfig
 
     var body: some View {
-        TextField("Report Name", text: $pipReportConfig.reportName) // ✅ 自动绑定
+        TextField("Report Name", text: $reportConfig.reportName) // ✅ 自动绑定
     }
 }
 ```
 **特点：**
-- `@Bindable` **不会创建或持有 `pipReportConfig`，只是引用它**。
+- `@Bindable` **不会创建或持有 `reportConfig`，只是引用它**。
 - `@Bindable` **允许 `TextField` 直接绑定到 `reportName`**，不需要 `Binding(get:set:)`。
 
 ---
@@ -421,16 +421,16 @@ struct PiPConfigurationSheetView: View {
 有时，可能希望 `@Observable` 的属性能**单独绑定到 UI 控件**，比如：
 ```swift
 struct SubView: View {
-    @Bindable var config: PIPReportConfigModel
+    @Bindable var config: ConfigModel
 
     var body: some View {
-        Toggle("Show Tuner", isOn: $config.isShowTunerScenario)
+        Toggle("Show xxxx", isOn: $config.isShowxxxx)
     }
 }
 ```
 **特点**
 - `@Bindable` **让整个 `config` 可绑定**。
-- `$config.isShowTunerScenario` **直接生成 `Binding<Bool>`**。
+- `$config.isShowxxxx` **直接生成 `Binding<Bool>`**。
 
 ---
 
@@ -1018,30 +1018,30 @@ initializer is inaccessible due to 'private' protection level
 
 ```swift
         .task {
-            await CSVReportManager.shared.processCSVReportData(with: csvURL)
-            if CSVReportManager.shared.isDataLoaded && !CSVReportManager.shared.csvAllRows.isEmpty {
-                viewModel.loadLineChartData()
+            await ReportManager.shared.processReportData(with: uRL)
+            if ReportManager.shared.isDataLoaded && !ReportManager.shared.allRows.isEmpty {
+                viewModel.loadData()
             }
         }
         .onAppear {
             Task {
-                await CSVReportManager.shared.processCSVReportData(with: csvURL)
-                if CSVReportManager.shared.isDataLoaded && !CSVReportManager.shared.csvAllRows.isEmpty {
-                    viewModel.loadLineChartData()
+                await ReportManager.shared.processReportData(with: uRL)
+                if ReportManager.shared.isDataLoaded && !ReportManager.shared.allRows.isEmpty {
+                    viewModel.loadData()
                 }
             }
         }
 ```
 
-当我在 `onAppear` 使用 `Task`，解析数据 `CSVReportManager.shared.processCSVReportData(with: csvURL)`
-我解析完之后，`CSVReportManager.shared.isDataLoaded` 的状态是飘忽不定的
-当我想使用 `CSVReportManager.shared.isDataLoaded` 控制状态的时候，我明明知道`CSVReportManager.shared.isDataLoaded` 还没有解析完为 `false`，但是它的值先为 `true`，后面才会变化成正确的状态。但是我直接使用
+当我在 `onAppear` 使用 `Task`，解析数据 `ReportManager.shared.processReportData(with: uRL)`
+我解析完之后，`ReportManager.shared.isDataLoaded` 的状态是飘忽不定的
+当我想使用 `ReportManager.shared.isDataLoaded` 控制状态的时候，我明明知道`ReportManager.shared.isDataLoaded` 还没有解析完为 `false`，但是它的值先为 `true`，后面才会变化成正确的状态。但是我直接使用
 
 ```swift
 .task {
-            await CSVReportManager.shared.processCSVReportData(with: csvURL)
-            if CSVReportManager.shared.isDataLoaded && !CSVReportManager.shared.csvAllRows.isEmpty {
-                viewModel.loadLineChartData()
+            await ReportManager.shared.processReportData(with: uRL)
+            if ReportManager.shared.isDataLoaded && !ReportManager.shared.allRows.isEmpty {
+                viewModel.loadData()
             }
         }
 ```
@@ -1062,11 +1062,11 @@ initializer is inaccessible due to 'private' protection level
    - `onAppear` 是 `SwiftUI` 的视图生命周期钩子，虽然它会在视图出现时触发，但它可能没有完全同步地与视图的渲染周期对接。尤其是在处理异步数据时，`onAppear` 内的异步任务可能会在视图还未完全渲染时就启动，导致状态不一致。
 
 3. **状态变化滞后和同步问题：**
-   - `isDataLoaded` 在 `CSVReportManager` 中可能会在异步加载数据后被更新。由于我在 `onAppear` 中启动异步任务，`SwiftUI` 可能在异步任务完成之前就渲染了界面，导致状态标志变化滞后，甚至被错误地设为 `true`。
+   - `isDataLoaded` 在 `ReportManager` 中可能会在异步加载数据后被更新。由于我在 `onAppear` 中启动异步任务，`SwiftUI` 可能在异步任务完成之前就渲染了界面，导致状态标志变化滞后，甚至被错误地设为 `true`。
 
 **为什么 `.task` 解决了问题**
 
-- `task` 修饰符是在 `SwiftUI` 视图出现时启动异步任务，并确保视图的生命周期与异步任务的执行顺序保持一致。在我直接使用 `task` 时，`CSVReportManager.shared.processCSVReportData(with: csvURL)` 任务完成后，只有当 `isDataLoaded` 被正确设置为 `true` 并且数据加载完毕时，才会执行接下来的数据处理逻辑。
+- `task` 修饰符是在 `SwiftUI` 视图出现时启动异步任务，并确保视图的生命周期与异步任务的执行顺序保持一致。在我直接使用 `task` 时，`ReportManager.shared.processReportData(with: uRL)` 任务完成后，只有当 `isDataLoaded` 被正确设置为 `true` 并且数据加载完毕时，才会执行接下来的数据处理逻辑。
 - 使用 `.task` 时，`SwiftUI` 会确保异步任务执行完毕并且状态更新后，才进行界面更新，这样我就能控制状态的变化，并保证数据加载的顺序。
 
 **如何避免此类问题**
@@ -1154,10 +1154,10 @@ private var foregroundStyleScale: [Color] {
 
 ```swift
 struct GroupPointMarkChartView: View {
-    let fieldChartData: PMRFieldLineChartData
+    let chartData: LineChartData
 
     var body: some View {
-        // 这里的 fieldChartData 是初始化时必须传入的
+        // 这里的 cChartData 是初始化时必须传入的
     }
 }
 ```
@@ -1182,22 +1182,22 @@ struct GroupPointMarkChartView: View {
 ```swift
 // **Content area (dynamic switching)**
             Group {
-                PMReportView(csvURL: csvURL)
+                MyReportView(csvURL: csvURL)
             }
 我这样的时候可以正常运行
 
             Group {
                 switch selectedView {
                 case .table:
-                    PMReportView(csvURL: csvURL)
+                    MyReportView(csvURL: csvURL)
                 case .pieChart:
-                    PMReportPieChartView(csvURL: csvURL)
+                    MyReportPieChartView(csvURL: csvURL)
                 case .lineChart:
-                    PMReportLineChartView(csvURL: csvURL)
+                    MyReportLineChartView(csvURL: csvURL)
                 }
             }
 ```
-编译时 `Xcode` 提示在 `PMReportView(csvURL: csvURL)` 处报错：**`No exact matches in reference to static method 'buildExpression'`**
+编译时 `Xcode` 提示在 `MyReportView(csvURL: csvURL)` 处报错：**`No exact matches in reference to static method 'buildExpression'`**
 
 -   这种报错一般是指：**表示在某些地方类型不匹配或者 `SwiftUI` 无法正确推断类型。**
 
@@ -1205,16 +1205,16 @@ struct GroupPointMarkChartView: View {
 **根本原因分析：**
 
 1. **类型推断问题：**
-   `SwiftUI` 中的 `Group` 会将其包含的所有视图推断成同一个类型。如果在 `Group` 中有多个 `View`，并且这些视图的类型不一致，`SwiftUI` 就无法推断出它们的共同类型，因此会导致编译报错。这里，`PMReportView(csvURL: csvURL)`、`PMReportPieChartView()` 和 `PMReportLineChartView()` 由于视图结构不完全一致，因此导致了类型推断失败。
+   `SwiftUI` 中的 `Group` 会将其包含的所有视图推断成同一个类型。如果在 `Group` 中有多个 `View`，并且这些视图的类型不一致，`SwiftUI` 就无法推断出它们的共同类型，因此会导致编译报错。这里，`MyReportView(csvURL: csvURL)`、`MyReportPieChartView()` 和 `MyReportLineChartView()` 由于视图结构不完全一致，因此导致了类型推断失败。
 
 2. **`switch` 语句和类型推断：**
-   当在 `switch` 语句中切换视图时，`SwiftUI` 需要通过类型推断来确定每个 `case` 的返回值。然而，`PMReportView` 需要一个 `csvURL` 参数，而 `PMReportPieChartView` 和 `PMReportLineChartView` 没有这个参数。当它们都包含在同一个 `Group` 内时，`SwiftUI `无法保证返回的视图类型一致。
+   当在 `switch` 语句中切换视图时，`SwiftUI` 需要通过类型推断来确定每个 `case` 的返回值。然而，`MyReportView` 需要一个 `csvURL` 参数，而 `MyReportPieChartView` 和 `MyReportLineChartView` 没有这个参数。当它们都包含在同一个 `Group` 内时，`SwiftUI `无法保证返回的视图类型一致。
 
 3. **`buildExpression` 错误：**
-   `SwiftUI` 编译器通过 `buildExpression` 方法来处理视图的构建。如果在 `switch` 语句中传递不同类型的视图（比如 `PMReportView` 和没有 `csvURL` 的其他视图），`SwiftUI` 无法通过类型推断确定每个视图的类型，并且无法正确调用 `buildExpression` 方法，因此报错：`No exact matches in reference to static method 'buildExpression'`。
+   `SwiftUI` 编译器通过 `buildExpression` 方法来处理视图的构建。如果在 `switch` 语句中传递不同类型的视图（比如 `MyReportView` 和没有 `csvURL` 的其他视图），`SwiftUI` 无法通过类型推断确定每个视图的类型，并且无法正确调用 `buildExpression` 方法，因此报错：`No exact matches in reference to static method 'buildExpression'`。
 
 **内部原因：**
-- **类型不一致**：在 `switch` 语句中，`PMReportView` 需要 `csvURL` 作为初始化参数，但 `PMReportPieChartView` 和 `PMReportLineChartView` 并没有这个参数。`SwiftUI` 的 `Group` 无法处理不同类型的视图，因为它期望 `Group` 中的所有视图具有一致的类型。
+- **类型不一致**：在 `switch` 语句中，`MyReportView` 需要 `csvURL` 作为初始化参数，但 `MyReportPieChartView` 和 `MyReportLineChartView` 并没有这个参数。`SwiftUI` 的 `Group` 无法处理不同类型的视图，因为它期望 `Group` 中的所有视图具有一致的类型。
   
 - **`buildExpression` 是一个构建 SwiftUI 表达式的机制**：`SwiftUI` 依赖 `buildExpression` 来解析 `View` 类型。如果存在类型不一致的问题，它就无法正确处理这个表达式，导致编译时出错。
 
@@ -1222,14 +1222,14 @@ struct GroupPointMarkChartView: View {
 
 **1. 确保每个视图都有一致的参数类型：**
 
-   如果希望 `PMReportView`、`PMReportPieChartView` 和 `PMReportLineChartView` 都能接受 `csvURL`，那么需要为这些视图都添加 `csvURL` 属性，并在初始化时传递 `csvURL`。
+   如果希望 `MyReportView`、`MyReportPieChartView` 和 `MyReportLineChartView` 都能接受 `csvURL`，那么需要为这些视图都添加 `csvURL` 属性，并在初始化时传递 `csvURL`。
 
    **修改方式**：
-   - 给 `PMReportPieChartView` 和 `PMReportLineChartView` 添加 `csvURL` 属性。
+   - 给 `MyReportPieChartView` 和 `MyReportLineChartView` 添加 `csvURL` 属性。
    - 在 `switch` 语句中，确保每个视图都接受相同的参数。
 
 ```swift
-struct PMReportPieChartView: View {
+struct MyReportPieChartView: View {
     let csvURL: URL
     
     var body: some View {
@@ -1237,7 +1237,7 @@ struct PMReportPieChartView: View {
     }
 }
 
-struct PMReportLineChartView: View {
+struct MyReportLineChartView: View {
     let csvURL: URL
     
     var body: some View {
@@ -1245,7 +1245,7 @@ struct PMReportLineChartView: View {
     }
 }
 
-struct PMReportContentView: View {
+struct MyReportContentView: View {
     enum ReportViewType {
         case table, pieChart, lineChart
     }
@@ -1259,11 +1259,11 @@ struct PMReportContentView: View {
             Group {
                 switch selectedView {
                 case .table:
-                    PMReportView(csvURL: csvURL)
+                    MyReportView(csvURL: csvURL)
                 case .pieChart:
-                    PMReportPieChartView(csvURL: csvURL)
+                    MyReportPieChartView(csvURL: csvURL)
                 case .lineChart:
-                    PMReportLineChartView(csvURL: csvURL)
+                    MyReportLineChartView(csvURL: csvURL)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1275,22 +1275,22 @@ struct PMReportContentView: View {
 
 **2. 或者将不需要参数的视图修改为不接收参数：**
 
-   如果 `PMReportPieChartView` 和 `PMReportLineChartView` 并不需要 `csvURL` 参数，可以直接去掉 `csvURL` 的传递，改成无参数的初始化方式。
+   如果 `MyReportPieChartView` 和 `MyReportLineChartView` 并不需要 `csvURL` 参数，可以直接去掉 `csvURL` 的传递，改成无参数的初始化方式。
 
 ```swift
-struct PMReportPieChartView: View {
+struct MyReportPieChartView: View {
     var body: some View {
         Text("Pie Chart View")
     }
 }
 
-struct PMReportLineChartView: View {
+struct MyReportLineChartView: View {
     var body: some View {
         Text("Line Chart View")
     }
 }
 
-struct PMReportContentView: View {
+struct MyReportContentView: View {
     enum ReportViewType {
         case table, pieChart, lineChart
     }
@@ -1304,11 +1304,11 @@ struct PMReportContentView: View {
             Group {
                 switch selectedView {
                 case .table:
-                    PMReportView(csvURL: csvURL)
+                    MyReportView(csvURL: csvURL)
                 case .pieChart:
-                    PMReportPieChartView()
+                    MyReportPieChartView()
                 case .lineChart:
-                    PMReportLineChartView()
+                    MyReportLineChartView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1319,7 +1319,7 @@ struct PMReportContentView: View {
 ```
 
 **总结：**
-- **编译时错误**：`No exact matches in reference to static method 'buildExpression'` 是由于 `switch` 中的 `PMReportView(csvURL: csvURL)` 和其他视图（`PMReportPieChartView`、`PMReportLineChartView`）之间的类型不一致引起的。
+- **编译时错误**：`No exact matches in reference to static method 'buildExpression'` 是由于 `switch` 中的 `MyReportView(csvURL: csvURL)` 和其他视图（`MyReportPieChartView`、`MyReportLineChartView`）之间的类型不一致引起的。
 - **解决方案**：要么确保所有视图都接受相同的参数（例如 `csvURL`），要么确保每个视图都不需要参数并进行相应调整。
 
 
@@ -1329,30 +1329,28 @@ struct PMReportContentView: View {
 
 #### 3.swiftUI 传递参数问题
 
-`PMReportView` 里面相关的属性如下：
+`MyReportView` 里面相关的属性如下：
 
 ```swift
-struct PMReportView: View {
+struct MyReportView: View {
     let csvURL: URL
-    @State private var csvRows: [[String]] = []
-    @State private var displayedRows: [[String]] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
 }
 ```
 
-为什么 `PMReportView` 初始化的时候时候必须带上参数 `csvURL`，就是  `PMReportView(csvURL: csvURL)` 这样初始化，而其余的属性值不需要放在初始化里面？
+为什么 `MyReportView` 初始化的时候时候必须带上参数 `csvURL`，就是  `MyReportView(csvURL: csvURL)` 这样初始化，而其余的属性值不需要放在初始化里面？
 
 ---
 
 **问题分析：**
 
-- `PMReportView(csvURL: csvURL)` 必须传递 `csvURL` 参数，而 `PMReportPieChartView()` 和 `PMReportLineChartView()` 没有接收 `csvURL` 参数，这导致了在 `switch` 语句中出现了类型不一致的问题。由于 `PMReportView` 需要 `csvURL` 这个初始化参数，而其他视图没有这个参数，`SwiftUI` 不能在 `switch` 语句中推断出一致的视图类型，因而报错。
+- `MyReportView(csvURL: csvURL)` 必须传递 `csvURL` 参数，而 `MyReportPieChartView()` 和 `MyReportLineChartView()` 没有接收 `csvURL` 参数，这导致了在 `switch` 语句中出现了类型不一致的问题。由于 `MyReportView` 需要 `csvURL` 这个初始化参数，而其他视图没有这个参数，`SwiftUI` 不能在 `switch` 语句中推断出一致的视图类型，因而报错。
 
-**为什么 `PMReportView` 需要 `csvURL` 参数：**
+**为什么 `MyReportView` 需要 `csvURL` 参数：**
 
-在 `SwiftUI` 中，每个视图的 `init` 方法需要参数时，必须明确传递这些参数。在 `PMReportView` 中，`csvURL` 是一个 `let` 常量属性，它在初始化时被传递。这是因为 `csvURL` 可能是这个视图的核心数据源，用来加载 CSV 数据。因此，`csvURL` 在视图初始化时必须提供，以便视图能够正确加载并处理数据。
+在 `SwiftUI` 中，每个视图的 `init` 方法需要参数时，必须明确传递这些参数。在 `MyReportView` 中，`csvURL` 是一个 `let` 常量属性，它在初始化时被传递。这是因为 `csvURL` 可能是这个视图的核心数据源，用来加载 CSV 数据。因此，`csvURL` 在视图初始化时必须提供，以便视图能够正确加载并处理数据。
 
 **为什么其他属性不需要在初始化时传递：**
 
@@ -1360,7 +1358,7 @@ struct PMReportView: View {
 1. **`let` 常量属性：** `let` 属性在初始化时必须提供。这些属性需要通过初始化方法传递参数。
 2. **`@State`、`@Binding` 和其他状态属性：** 这些属性是由 `SwiftUI` 管理的，并且它们会在视图生命周期中动态更新。所以这些属性不需要在初始化时传递。
 
-`@State` 和类似的属性是由 `SwiftUI` 自动管理的，它们是绑定到视图状态的。当视图的状态发生变化时，`SwiftUI` 会自动重新渲染视图。比如 `@State private var csvRows: [[String]] = []` 就是一个状态变量，`SwiftUI` 会在需要时自动更新这个变量的值，而不需要在初始化时传递。
+`@State` 和类似的属性是由 `SwiftUI` 自动管理的，它们是绑定到视图状态的。当视图的状态发生变化时，`SwiftUI` 会自动重新渲染视图。比如 `@State private var isLoading = false` 就是一个状态变量，`SwiftUI` 会在需要时自动更新这个变量的值，而不需要在初始化时传递。
 
 **SwiftUI 独有的写法：**
 
@@ -1369,7 +1367,7 @@ struct PMReportView: View {
 在一般的 `Swift` 对象中，所有的属性通常都会在初始化时传递或赋值。而在 `SwiftUI` 中，`@State` 和 `@Binding` 等属性则不需要在初始化时传递，因为它们会自动管理视图的状态。
 
 **总结：**
-- **`csvURL` 参数**： `PMReportView` 需要 `csvURL` 参数来初始化，因为它是视图的核心数据源，而其他视图可以根据需要选择是否传递该参数。
+- **`csvURL` 参数**： `MyReportView` 需要 `csvURL` 参数来初始化，因为它是视图的核心数据源，而其他视图可以根据需要选择是否传递该参数。
 - **`@State` 属性**： 这些属性是由 `SwiftUI` 自动管理的，通常不需要在初始化时传递。
 - **类型一致性**：确保在 `switch` 中的每个分支返回的视图类型一致，或确保没有参数时使用默认初始化。
 
@@ -1381,14 +1379,14 @@ struct PMReportView: View {
 我先导航进入另外一个页面，退出后点击 `ReportListView` 中的 `item` 想进入`ReportContentView` 的时候。无法导航进入。且报错
 
 ```
-A NavigationLink is presenting a value of type “PMReport” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+A NavigationLink is presenting a value of type “MyReport” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
 
 Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
 ```
 `ReportListView` 中进入对应 `ReportContentView` 的处理是这么写的：
 
 ```swift
-@State private var reports: [PMReport] = []
+@State private var reports: [MyReport] = []
     
 NavigationStack {
 List {
@@ -1397,8 +1395,6 @@ List {
                     HStack {
                         Image(systemName: selectedReports.contains(report) ? "checkmark.circle.fill" : "circle")
                             .animation(.default, value: selectedReports.contains(report))
-                            .contentTransition(.symbolEffect(.replace))
-                            .font(.headline)
                             .foregroundStyle(selectedReports.contains(report) ? Color.green : Color.gray)
                             .onTapGesture {
                                 toggleSelection(for: report)
@@ -1410,14 +1406,14 @@ List {
                 }
             }
         }
-        .navigationDestination(for: PMReport.self) { report in
+        .navigationDestination(for: MyReport.self) { report in
             ReportContentView(csvURL: report.url)
         }
 }
 
 ```
 
-开始以为是 `@State private var reports: [PMReport] = []` 标记的数据为临时数据，后面发现 `ReportListView` 的父控件 `ReportView` 里面已经包装了 `NavigationStack`，好像就是这里导致的冲突，引发的报错
+开始以为是 `@State private var reports: [MyReport] = []` 标记的数据为临时数据，后面发现 `ReportListView` 的父控件 `ReportView` 里面已经包装了 `NavigationStack`，好像就是这里导致的冲突，引发的报错
 
 ```swift
 struct ReportView: View {
@@ -1451,18 +1447,18 @@ struct ReportView: View {
 **根本原因：**
 - **重复的 `NavigationStack`：** 当我在 `ReportView` 中使用了一个 `NavigationStack`，然后在 `ReportListView` 内部又使用了一个 `NavigationStack`，这就导致了嵌套的导航栈。`SwiftUI` 的 `NavigationStack` 是一个上下文管理器，它应该只存在一个父 `NavigationStack` 来控制整个视图栈。嵌套多个 `NavigationStack` 会导致导航目的地无法识别，进而导致无法正确激活链接。
 
-- **`NavigationLink` 和 `navigationDestination` 配对的问题：** `NavigationLink` 使用 `NavigationStack` 来管理其导航目的地。当我为 `PMReport` 创建了 `NavigationLink` 并且指定了 `navigationDestination(for: PMReport.self)`，需要确保这个 `NavigationStack` 是唯一的，并且能够正确处理目标视图。
+- **`NavigationLink` 和 `navigationDestination` 配对的问题：** `NavigationLink` 使用 `NavigationStack` 来管理其导航目的地。当我为 `MyReport` 创建了 `NavigationLink` 并且指定了 `navigationDestination(for: MyReport.self)`，需要确保这个 `NavigationStack` 是唯一的，并且能够正确处理目标视图。
 
 **解决方案：**
 我只需要在 `ReportView` 中保留一个 `NavigationStack`，然后在 `ReportListView` 中移除 `NavigationStack`，这能确保导航目的地正确识别。具体可以按以下步骤修改：
 
-**1. 移除 `PMReportListView` 中的 `NavigationStack`：**
+**1. 移除 `ReportListView` 中的 `NavigationStack`：**
 
    `ReportListView` 只需要负责展示列表，具体的导航管理交给 `ReportView` 来处理。所以，在 `ReportListView` 中删除 `NavigationStack`，只保留导航目标的 `navigationDestination`。
 
 ```swift
 struct ReportListView: View {
-    @State private var reports: [PMReport] = []
+    @State private var reports: [MyReport] = []
     
     var body: some View {
         List {
@@ -1471,8 +1467,6 @@ struct ReportListView: View {
                     HStack {
                         Image(systemName: selectedReports.contains(report) ? "checkmark.circle.fill" : "circle")
                             .animation(.default, value: selectedReports.contains(report))
-                            .contentTransition(.symbolEffect(.replace))
-                            .font(.headline)
                             .foregroundStyle(selectedReports.contains(report) ? Color.green : Color.gray)
                             .onTapGesture {
                                 toggleSelection(for: report)
@@ -1484,7 +1478,7 @@ struct ReportListView: View {
                 }
             }
         }
-        .navigationDestination(for: PMReport.self) { report in
+        .navigationDestination(for: MyReport.self) { report in
             ReportContentView(csvURL: report.url)
         }
     }
